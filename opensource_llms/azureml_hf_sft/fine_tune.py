@@ -173,7 +173,72 @@ def main(args):
         return example['record']  
     load_best_model_at_the_end = None if (args.enable_deepspeed and args.use_lora) else True
     logging.info("load_best_model_at_the_end  %s", load_best_model_at_the_end)
-    training_arguments = SFTConfig(  
+
+    bnb_config = None
+    quant_storage_dtype = None  
+    if args.use_4bit_quantization:
+        compute_dtype = getattr(torch, args.bnb_4bit_compute_dtype)
+        quant_storage_dtype = getattr(torch, args.bnb_4bit_quant_storage_dtype)
+
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=args.use_4bit_quantization,
+            bnb_4bit_quant_type=args.bnb_4bit_quant_type,
+            bnb_4bit_compute_dtype=compute_dtype,
+            bnb_4bit_use_double_quant=args.use_nested_quant,
+            bnb_4bit_quant_storage=quant_storage_dtype,
+        )
+
+        if compute_dtype == torch.float16 and args.use_4bit_quantization:
+            major, _ = torch.cuda.get_device_capability()
+            if major >= 8:
+                print("=" * 80)
+                print("Your GPU supports bfloat16, you can accelerate training with the argument --bf16")
+                print("=" * 80)
+        elif args.use_8bit_quantization:
+            bnb_config = BitsAndBytesConfig(load_in_8bit=args.use_8bit_quantization)
+    torch_dtype = (
+    quant_storage_dtype if quant_storage_dtype and quant_storage_dtype.is_floating_point else torch.float32
+)
+
+    # Load the model  
+
+    model = AutoModelForCausalLM.from_pretrained(  
+        os.path.join(PATH, "data", "model"),  
+        quantization_config=bnb_config if args.enable_quantization and args.use_lora else None,  
+        device_map=device_map,
+            attn_implementation="flash_attention_2" if args.use_flash_attn else "eager",
+            torch_dtype=torch_dtype,
+    )  
+  
+    # Apply LoRA if specified
+    peft_config = None  
+    if args.use_lora:  
+        print("Using LoRA for parameter-efficient fine-tuning, target modules:", args.target_modules)
+        peft_config = LoraConfig(  
+            lora_alpha=args.lora_alpha,  
+            lora_dropout=args.lora_dropout,  
+            r=args.lora_r,  
+            bias="none",  
+            task_type="CAUSAL_LM",  
+            target_modules=args.target_modules,  
+        )  
+        model = PeftModel(model, peft_config)  
+    else:
+        print("Training using full model's weight.")
+  
+    model.config.use_cache = False  
+    model.config.pretraining_tp = 1  
+  
+    tokenizer = AutoTokenizer.from_pretrained(  
+        os.path.join(PATH, "data", "model"),  
+        local_files_only=True,  
+        device_map=device_map  
+    )  
+    tokenizer.pad_token = tokenizer.eos_token  
+    tokenizer.padding_side = "right"  
+    
+    # Define training arguments  
+    training_arguments = TrainingArguments(  
         output_dir=output_dir,  
         num_train_epochs=num_train_epochs,  
         per_device_train_batch_size=per_device_train_batch_size,  
@@ -211,40 +276,8 @@ def main(args):
             bnb_4bit_use_double_quant=args.use_nested_quant,  
         )  
   
-    bnb_config = None
-    quant_storage_dtype = None  
-    if args.use_4bit_quantization:
-        compute_dtype = getattr(torch, args.bnb_4bit_compute_dtype)
-        quant_storage_dtype = getattr(torch, args.bnb_4bit_quant_storage_dtype)
-
-        bnb_config = BitsAndBytesConfig(
-            load_in_4bit=args.use_4bit_quantization,
-            bnb_4bit_quant_type=args.bnb_4bit_quant_type,
-            bnb_4bit_compute_dtype=compute_dtype,
-            bnb_4bit_use_double_quant=args.use_nested_quant,
-            bnb_4bit_quant_storage=quant_storage_dtype,
-        )
-
-        if compute_dtype == torch.float16 and args.use_4bit_quantization:
-            major, _ = torch.cuda.get_device_capability()
-            if major >= 8:
-                print("=" * 80)
-                print("Your GPU supports bfloat16, you can accelerate training with the argument --bf16")
-                print("=" * 80)
-        elif args.use_8bit_quantization:
-            bnb_config = BitsAndBytesConfig(load_in_8bit=args.use_8bit_quantization)
-    torch_dtype = (
-    quant_storage_dtype if quant_storage_dtype and quant_storage_dtype.is_floating_point else torch.float32
-)
-
-    # Load the model  
-
     model = AutoModelForCausalLM.from_pretrained(  
         os.path.join(PATH, "data", "model"),  
-        quantization_config=bnb_config if enable_quantization and args.use_lora else None,  
-        device_map=device_map,
-            attn_implementation="flash_attention_2" if args.use_flash_attn else "eager",
-            torch_dtype=torch_dtype,
         quantization_config=bnb_config if args.enable_quantization and args.use_lora else None,  
         device_map=device_map if not is_deepspeed_zero3_enabled() else None,  
         torch_dtype=torch.float16,  
