@@ -14,7 +14,7 @@ Fine-tuning large open-source language models has its unique challenges, includi
   
 For a detailed explanation, see the [Open Source LLM Blog Post Series](https://techcommunity.microsoft.com/blog/machinelearningblog/scaling-open-source-llm-fine-tuning-with-azure-ml/4362787).  
   
-### 2. [OpenAI Models](azureopenai)  
+### 2. [OpenAI Models](azure_openai)  
 This section provides examples and best practices for fine-tuning OpenAI models for various scenarios, enabling you to adapt models to your specific use case. It includes:  
   
 - **Function Calling**: Fine-tuning for tasks that require structured outputs or API integrations.  
