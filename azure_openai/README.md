@@ -14,7 +14,7 @@ The **Python Code Generation** example focuses on fine-tuning models to generate
 This example showcases fine-tuning OpenAI models for **SQL code generation**, enabling the model to translate natural language queries into SQL statements. This is particularly useful for building tools that allow non-technical users to interact with databases.  
 
 ### 4. [DPO Fine-Tuning for Human-Preference Q&A](dpo_qa_link)
-- **Direct Preference Optimization (DPO)**: This example highlights how to fine-tune OpenAI models using **Direct Preference Optimization (DPO)** - a technique designed to align model outputs more closely with human preferences without relying on reinforcement learning. By leveraging datasets that contain pairs of preferred and non-preferred responses, DPO enables more human-aligned and controllable responses in tasks such as Q&A or assistant-like behavior.
+This example highlights how to fine-tune OpenAI models using **Direct Preference Optimization (DPO)** - a technique designed to align model outputs more closely with human preferences without relying on reinforcement learning. By leveraging datasets that contain pairs of preferred and non-preferred responses, DPO enables more human-aligned and controllable responses in tasks such as Q&A or assistant-like behavior.
  
 ### 5. Future Additions  
 - **Vision Tasks**: Exploring fine-tuning methods for OpenAI models that incorporate vision capabilities, enabling multi-modal functionality.  
