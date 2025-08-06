@@ -1,7 +1,7 @@
 accelerate==1.1.1  
 peft==0.13.2  
 bitsandbytes==0.44.1  
-transformers==4.46.3  
+transformers==4.53.0  
 trl==0.12.1  
 scipy==1.14.1  
 azureml-mlflow==1.58.0.post3  
