@@ -3,12 +3,15 @@ debug: false
 distributed_type: FSDP
 fsdp_config:
   fsdp_auto_wrap_policy: TRANSFORMER_BASED_WRAP
+  fsdp_transformer_layer_cls_to_wrap: "Qwen3MoeDecoderLayer"
   fsdp_backward_prefetch: BACKWARD_PRE
-  fsdp_cpu_ram_efficient_loading: true
-  fsdp_forward_prefetch: false
+  fsdp_cpu_ram_efficient_loading: false
+  fsdp_forward_prefetch: true
   fsdp_offload_params: false
-  fsdp_sharding_strategy: FULL_SHARD
+  fsdp_sharding_strategy: SHARD_GRAD_OP 
   fsdp_state_dict_type: SHARDED_STATE_DICT
   fsdp_sync_module_states: true
-  fsdp_use_orig_params: false
+  fsdp_use_orig_params: true
+  limit_all_gathers: true
+mixed_precision: bf16
 use_cpu: false

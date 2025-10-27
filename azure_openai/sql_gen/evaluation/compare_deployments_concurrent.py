@@ -50,7 +50,7 @@ def has_order_by(sql):
         return False  
     return True  
 @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))  
-def compare_sql_results(predicted_sql, ground_truth_sql, question, db_path='northwind.db'):  
+def compare_sql_results(predicted_sql, ground_truth_sql, question, db_path='../data/northwind.db'):  
     """Executes both SQL queries, compares results, and returns (passed_bool, explanation_str)."""  
   
     def _normalize_structure(sql_query):  
@@ -228,11 +228,11 @@ def run_tests_and_log(test_data, knowledge_graph_context, output_file="detailed_
   
 def main():  
     # Load test data (assumed to be a jsonl file)  
-    with open("sql_result_test_v5.jsonl", "r") as f:  
+    with open("../data/sql_result_test_v5.jsonl", "r") as f:  
         test_data = [json.loads(line) for line in f]  
   
     # Load knowledge graph context and format it as JSON for the prompt context  
-    with open("analytic_graph_v2.json", "r") as f:  
+    with open("../data/analytic_graph.json", "r") as f:  
         knowledge_graph = json.load(f)  
         knowledge_graph_context = json.dumps(knowledge_graph, indent=4)  
   

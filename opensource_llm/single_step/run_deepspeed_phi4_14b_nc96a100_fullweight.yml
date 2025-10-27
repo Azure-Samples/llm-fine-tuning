@@ -23,7 +23,7 @@ command: >
   --add_special_tokens False  
   --append_concat_token False  
   --splits "train,test"  
-  --max_seq_len 2048  
+  --max_seq_length 2048  
   --num_train_epochs 1 
   --max_steps 20 
   --logging_steps 5  
@@ -46,14 +46,8 @@ command: >
   --use_reentrant False  
   --dataset_text_field "content"  
   --use_peft_lora False  
-  --lora_r 8  
-  --lora_alpha 16  
-  --lora_dropout 0.1  
-  --lora_target_modules "all-linear"  
   --use_4bit_quantization False  
   --use_nested_quant False  
-  --bnb_4bit_compute_dtype "bfloat16"  
-  --bnb_4bit_quant_storage_dtype "bfloat16"
   --use_flash_attn True  
 environment:  
   build:

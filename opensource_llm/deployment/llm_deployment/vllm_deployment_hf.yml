@@ -1,0 +1,37 @@
+$schema: https://azuremlschemas.azureedge.net/latest/managedOnlineDeployment.schema.json
+name: vllm-llama3
+endpoint_name: vllm-llama
+environment_variables:
+  MODEL_NAME: "meta-llama/Llama-3.2-1B-Instruct"
+  VLLM_ARGS: "--max-num-batched-tokens 65536 --max-model-len 5000 --max-num-seqs 512 --tensor-parallel-size 2 --gpu-memory-utilization 0.95 --disable-log-requests --enforce-eager" # optional args for vLLM runtime
+  VLLM_ATTENTION_BACKEND: FLASH_ATTN
+  HUGGING_FACE_HUB_TOKEN: "" # Set this to your HF token or use Azure ML secrets
+environment:
+  image: cf406cec7620485598800b18191dabd0.azurecr.io/azureml/azureml_66fb90fad9312e120ef755651d52c020@sha256:71f3f162192988aa8a13e75e5fdf3e241cce0deecbbdd43cda682001718fae54
+  inference_config:
+    liveness_route:
+      port: 8000
+      path: /health
+    readiness_route:
+      port: 8000
+      path: /health
+    scoring_route:
+      port: 8000
+      path: /
+instance_type: Standard_NC48ads_A100_v4
+instance_count: 1
+request_settings:
+    max_concurrent_requests_per_instance: 120  
+    request_timeout_ms: 180000
+liveness_probe:
+  initial_delay: 10
+  period: 10
+  timeout: 2
+  success_threshold: 1
+  failure_threshold: 30
+readiness_probe:
+  initial_delay: 120
+  period: 10
+  timeout: 2
+  success_threshold: 1
+  failure_threshold: 30

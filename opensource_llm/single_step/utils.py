@@ -6,6 +6,14 @@ import torch
 import transformers
 from datasets import DatasetDict, load_dataset, load_from_disk
 from datasets.builder import DatasetGenerationError
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP  
+from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy, _or_policy  
+from transformers.models.qwen3_moe.modeling_qwen3_moe import Qwen3MoeDecoderLayer
+from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
+
+
+import functools  
+
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -84,10 +92,36 @@ def create_datasets(tokenizer, data_args, training_args, apply_chat_template=Fal
 
 
 def create_and_prepare_model(args, data_args, training_args):
-    if args.use_unsloth:
-        from unsloth import FastLanguageModel
+
+    # Check if the model path is already pointing to a model directory
+    # or if we need to append the standard Azure ML model structure
+    original_path = args.model_name_or_path
+    
+    # Check if it's a local path (not a HuggingFace Hub model)
+    if os.path.sep in args.model_name_or_path or os.path.exists(args.model_name_or_path):
+        # This appears to be a local path, check Azure ML structure
+        if os.path.exists(os.path.join(args.model_name_or_path, "data", "model")):
+            args.model_name_or_path = os.path.join(args.model_name_or_path, "data", "model")
+            print(f"Using Azure ML data/model structure: {args.model_name_or_path}")
+        elif not (os.path.exists(os.path.join(args.model_name_or_path, "config.json")) or 
+                  os.path.exists(os.path.join(args.model_name_or_path, "pytorch_model.bin")) or
+                  os.path.exists(os.path.join(args.model_name_or_path, "model.safetensors"))):
+            # Try model_artifact structure
+            artifact_path = os.path.join(args.model_name_or_path, "model_artifact", "model")
+            if os.path.exists(artifact_path):
+                args.model_name_or_path = artifact_path
+                print(f"Using Azure ML model_artifact structure: {args.model_name_or_path}")
+            else:
+                # Fallback to original path for HuggingFace Hub models
+                args.model_name_or_path = original_path
+                print(f"Fallback to original path for HuggingFace Hub model: {args.model_name_or_path}")
+        else:
+            print(f"Using direct model path: {args.model_name_or_path}")
     else:
-        args.model_name_or_path = os.path.join(args.model_name_or_path, "data", "model")
+        # This looks like a HuggingFace Hub model (e.g., "Qwen/Qwen3-30B-A3B")
+        print(f"Using HuggingFace Hub model: {args.model_name_or_path}")
+
+
     bnb_config = None
     quant_storage_dtype = None
 
@@ -135,6 +169,7 @@ def create_and_prepare_model(args, data_args, training_args):
         print("torch_dtype:", torch_dtype)
         print("quant_storage_dtype:", quant_storage_dtype)
         print("quantization_config:", bnb_config)
+
         model = AutoModelForCausalLM.from_pretrained(
             args.model_name_or_path,
             quantization_config=bnb_config,
@@ -142,6 +177,30 @@ def create_and_prepare_model(args, data_args, training_args):
             attn_implementation="flash_attention_2" if args.use_flash_attn else "eager",
             torch_dtype=torch_dtype,
         )
+        # Collect expert modules by name 
+        my_auto_wrap_policy = functools.partial(
+        transformer_auto_wrap_policy,
+        transformer_layer_cls={Qwen3MoeDecoderLayer},
+        )
+
+ 
+        # expert_modules = {m for name, m in model.named_modules() if ".experts." in name}  
+        
+        # def is_expert_policy(module: torch.nn.Module, recurse: bool, nonwrapped_numel: int) -> bool:  
+        #     return module in expert_modules  
+        
+        # # Combine with size-based policy  
+        # my_auto_wrap_policy = functools.partial(  
+        #     _or_policy,  
+        #     policies=[  
+        #         functools.partial(size_based_auto_wrap_policy, min_num_params=1_000_000),  
+        #         is_expert_policy  
+        #     ]  
+        # )  
+        
+         
+        
+
 
     peft_config = None
     chat_template = None
@@ -191,6 +250,21 @@ def create_and_prepare_model(args, data_args, training_args):
     else:
         tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, trust_remote_code=True)
         tokenizer.pad_token = tokenizer.eos_token
+    embed_module = model.model.embed_tokens # Qwen3MoeForCausalLM.model.embed_tokens
+    lm_head_module = model.lm_head
+    model = FSDP(
+        model,
+        auto_wrap_policy=my_auto_wrap_policy,
+        sharding_strategy=torch.distributed.fsdp.ShardingStrategy.FULL_SHARD,
+        backward_prefetch=torch.distributed.fsdp.BackwardPrefetch.BACKWARD_PRE,
+        forward_prefetch=True,
+        use_orig_params=True,
+        limit_all_gathers=True,
+        ignored_modules=[embed_module, lm_head_module],
+        device_id=torch.cuda.current_device(),
+    )
+
+
 
     if args.use_unsloth:
         # Do model patching and add fast LoRA weights

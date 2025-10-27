@@ -1,0 +1,12 @@
+FROM vllm/vllm-openai:latest  
+  
+# Set environment variables  
+ENV MODEL_NAME meta-llama/Llama-3.2-1B-Instruct  
+  
+# Install required Python libraries  
+RUN pip install --no-cache-dir transformers \  
+    && pip install --no-cache-dir accelerate \  
+    && pip install --no-cache-dir 'vllm>0.10.0'  
+  
+# Use torchrun to launch one worker per GPU  
+ENTRYPOINT ["torchrun", "--nproc_per_node=2", "-m", "vllm.entrypoints.openai.api_server", "--model", "meta-llama/Llama-3.2-1B-Instruct", "--tensor-parallel-size", "1", "--host", "0.0.0.0", "--port", "8000"]  

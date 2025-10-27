@@ -1,5 +1,5 @@
 # Use the base image from Azure ML or another suitable base image  
-FROM mcr.microsoft.com/azureml/curated/acpt-pytorch-2.2-cuda12.1:26  
+FROM mcr.microsoft.com/azureml/curated/acft-hf-nlp-gpu:104  
 
 # Install any system-level dependencies if needed  
 RUN apt-get update && apt-get install -y \  
