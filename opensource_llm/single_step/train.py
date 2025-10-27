@@ -92,6 +92,10 @@ class DataTrainingArguments:
         default="train,test",
         metadata={"help": "Comma separate list of the splits to use from the dataset."},
     )
+    max_seq_length: Optional[int] = field(
+        default=2048,
+        metadata={"help": "Maximum sequence length for training."},
+    )
 
 
 def main(model_args, data_args, training_args):
@@ -127,11 +131,11 @@ def main(model_args, data_args, training_args):
     # trainer
     trainer = SFTTrainer(
         model=model,
-        tokenizer=tokenizer,
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         peft_config=peft_config,
+        processing_class=tokenizer,
     )
     trainer.remove_callback(MLflowCallback)  
 
@@ -144,15 +148,9 @@ def main(model_args, data_args, training_args):
     with mlflow.start_run() as run:  
 
         # train
-        checkpoint = None
-        if training_args.resume_from_checkpoint is not None:
-            checkpoint = training_args.resume_from_checkpoint
-        trainer.train(resume_from_checkpoint=checkpoint)
+        trainer.train()
 
         # saving final model
-        if trainer.is_fsdp_enabled:
-            trainer.accelerator.state.fsdp_plugin.set_state_dict_type("FULL_STATE_DICT")
-        print("done training")
         trainer.save_model()
 
 

@@ -1,0 +1,354 @@
+{  
+  "date_format": "YYYY-MM-DD",  
+  "dialect": "sqlite",  
+  
+  "metrics": [  
+    {  
+      "name": "Gross Profit",  
+      "description": "Total margin realized from orders after deducting freight costs from sales revenue.",  
+      "formula": "SUM(order_details.UnitPrice * order_details.Quantity * (1 - order_details.Discount)) - SUM(Orders.Freight)",  
+      "tables": ["Orders", "order_details"],  
+      "time_dependent": true  
+    },  
+    {  
+      "name": "Freight to Sales Ratio",  
+      "description": "Proportion of freight cost relative to total shipped product sales.",  
+      "formula": "SUM(Orders.Freight) * 1.0 / NULLIF(SUM(order_details.UnitPrice * order_details.Quantity * (1 - order_details.Discount)), 0)",  
+      "tables": ["Orders", "order_details"],  
+      "time_dependent": true  
+    },  
+    {  
+      "name": "Late Shipment Rate",  
+      "description": "Percentage of orders shipped past their required date.",  
+      "formula": "COUNT(CASE WHEN Orders.ShippedDate > Orders.RequiredDate THEN 1 END) * 1.0 / COUNT(Orders.OrderID)",  
+      "tables": ["Orders"],  
+      "time_dependent": true  
+    },  
+    {  
+      "name": "Regional Freight Distribution",  
+      "description": "Total freight cost by region.",  
+      "dimension": "Regions.RegionDescription",  
+      "formula": "SUM(Orders.Freight)",  
+      "tables": ["Orders", "Employees", "EmployeeTerritories", "Territories", "Regions"],  
+      "time_dependent": false  
+    },  
+    {  
+      "name": "Multi-Item Order Percentage",  
+      "description": "Ratio of orders that include more than one distinct product.",  
+      "formula": "COUNT(CASE WHEN (SELECT COUNT(DISTINCT od2.ProductID) FROM order_details od2 WHERE od2.OrderID = Orders.OrderID) > 1 THEN 1 END) * 1.0 / COUNT(Orders.OrderID)",  
+      "tables": ["Orders", "order_details"],  
+      "time_dependent": false  
+    },  
+    {  
+      "name": "Reorder Necessity Index",  
+      "description": "Percent of products at or below their reorder level.",  
+      "formula": "COUNT(CASE WHEN Products.UnitsInStock <= Products.ReorderLevel THEN 1 END) * 1.0 / COUNT(DISTINCT Products.ProductID)",  
+      "tables": ["Products"],  
+      "time_dependent": false  
+    },  
+    {  
+      "name": "High-Value Account Ratio",  
+      "description": "Percentage of customers whose cumulative sales exceed 10 000 monetary units.",  
+      "formula": "COUNT(CASE WHEN (SELECT SUM(order_details.UnitPrice * order_details.Quantity * (1 - order_details.Discount)) FROM Orders JOIN order_details ON Orders.OrderID = order_details.OrderID WHERE Orders.CustomerID = Customers.CustomerID) > 10000 THEN 1 END) * 1.0 / COUNT(DISTINCT Customers.CustomerID)",  
+      "tables": ["Customers", "Orders", "order_details"],  
+      "time_dependent": false  
+    },  
+    {  
+      "name": "Order Processing Speed",  
+      "description": "Average number of days between order placement and shipment.",  
+      "formula": "AVG(julianday(Orders.ShippedDate) - julianday(Orders.OrderDate))",  
+      "tables": ["Orders"],  
+      "time_dependent": true  
+    },  
+    {  
+      "name": "Year-over-Year Growth",  
+      "description": "Annual percentage change in total sales revenue compared to the previous year.",  
+      "cte": "sales_by_year AS (SELECT strftime('%Y', Orders.OrderDate) AS yr, SUM(order_details.UnitPrice * order_details.Quantity * (1 - order_details.Discount)) AS sales FROM Orders JOIN order_details ON Orders.OrderID = order_details.OrderID GROUP BY strftime('%Y', Orders.OrderDate))",  
+      "formula": "(SELECT (SUM(CASE WHEN s1.yr = s2.yr + 1 THEN s1.sales END) - SUM(CASE WHEN s1.yr = s2.yr THEN s1.sales END)) * 1.0 / NULLIF(SUM(CASE WHEN s1.yr = s2.yr THEN s1.sales END), 0) FROM sales_by_year s1, sales_by_year s2 WHERE s1.yr = s2.yr + 1)",  
+      "tables": ["Orders", "order_details"],  
+      "time_dependent": true  
+    }  
+  ],  
+  
+  "entities": [  
+    {  
+      "name": "Merchandise",  
+      "description": "Products and their basic attributes.",  
+      "tables": ["Products", "Categories"],  
+      "columns": ["ProductID", "ProductName", "UnitPrice", "UnitsInStock", "CategoryID"],  
+      "sample_values": {  
+        "ProductID": 47,  
+        "ProductName": "Herbal Infusion Tea",  
+        "UnitPrice": 28.0,  
+        "UnitsInStock": 110,  
+        "CategoryID": 2  
+      }  
+    },  
+    {  
+      "name": "Business Account",  
+      "description": "Corporate customers or clients.",  
+      "tables": ["Customers"],  
+      "columns": ["CustomerID", "CompanyName", "ContactTitle", "City", "Country"],  
+      "sample_values": {  
+        "CustomerID": "TRAIH",  
+        "CompanyName": "Trailhead Sporting Co.",  
+        "ContactTitle": "Procurement Manager",  
+        "City": "Denver",  
+        "Country": "USA"  
+      }  
+    },  
+    {  
+      "name": "Staff Member",  
+      "description": "Employees and their hierarchy.",  
+      "tables": ["Employees"],  
+      "columns": ["EmployeeID", "LastName", "FirstName", "Title", "ReportsTo"],  
+      "sample_values": {  
+        "EmployeeID": 10,  
+        "LastName": "Henderson",  
+        "FirstName": "Jamie",  
+        "Title": "Regional Sales Manager",  
+        "ReportsTo": 5  
+      }  
+    },  
+    {  
+      "name": "Distribution Zone",  
+      "description": "Sales territories grouped into regions.",  
+      "tables": ["Territories", "Regions"],  
+      "columns": ["TerritoryID", "TerritoryDescription", "RegionID", "RegionDescription"],  
+      "sample_values": {  
+        "TerritoryID": "20201",  
+        "TerritoryDescription": "Midwest Suburbs",  
+        "RegionID": 2,  
+        "RegionDescription": "Central"  
+      }  
+    },  
+    {  
+      "name": "Fulfillment Partner",  
+      "description": "External shipping or logistics companies.",  
+      "tables": ["Shippers"],  
+      "columns": ["ShipperID", "CompanyName", "Phone"],  
+      "sample_values": {  
+        "ShipperID": 3,  
+        "CompanyName": "Logistics Worldwide",  
+        "Phone": "(212) 555-4990"  
+      }  
+    },  
+    {  
+      "name": "Vendor",  
+      "description": "Suppliers of goods or materials.",  
+      "tables": ["Suppliers"],  
+      "columns": ["SupplierID", "CompanyName", "Country", "Phone"],  
+      "sample_values": {  
+        "SupplierID": 5,  
+        "CompanyName": "North Mountain Farms",  
+        "Country": "Canada",  
+        "Phone": "(604) 555-1276"  
+      }  
+    },  
+    {  
+      "name": "Item Category",  
+      "description": "Product grouping.",  
+      "tables": ["Categories"],  
+      "columns": ["CategoryID", "CategoryName", "Description"],  
+      "sample_values": {  
+        "CategoryID": 2,  
+        "CategoryName": "Organic Beverages",  
+        "Description": "Teas, coffees, and juices sourced sustainably"  
+      }  
+    },  
+    {  
+      "name": "Sales Line Item",  
+      "description": "Individual order lines with quantity and discount.",  
+      "tables": ["order_details"],  
+      "columns": ["OrderID", "ProductID", "Quantity", "UnitPrice", "Discount"],  
+      "sample_values": {  
+        "OrderID": 11010,  
+        "ProductID": 47,  
+        "Quantity": 20,  
+        "UnitPrice": 28.0,  
+        "Discount": 0.05  
+      }  
+    }  
+  ],  
+  
+  "tables": {  
+    "Orders": {  
+      "primary_key": ["OrderID"],  
+      "columns": {  
+        "OrderID": "INTEGER",  
+        "CustomerID": "TEXT",  
+        "EmployeeID": "INTEGER",  
+        "OrderDate": "DATETIME",  
+        "RequiredDate": "DATETIME",  
+        "ShippedDate": "DATETIME",  
+        "ShipVia": "INTEGER",  
+        "Freight": "NUMERIC",  
+        "ShipName": "TEXT",  
+        "ShipAddress": "TEXT",  
+        "ShipCity": "TEXT",  
+        "ShipRegion": "TEXT",  
+        "ShipPostalCode": "TEXT",  
+        "ShipCountry": "TEXT"  
+      },  
+      "description": "Records of all orders placed."  
+    },  
+    "Customers": {  
+      "primary_key": ["CustomerID"],  
+      "columns": {  
+        "CustomerID": "TEXT",  
+        "CompanyName": "TEXT",  
+        "ContactName": "TEXT",  
+        "ContactTitle": "TEXT",  
+        "Address": "TEXT",  
+        "City": "TEXT",  
+        "Region": "TEXT",  
+        "PostalCode": "TEXT",  
+        "Country": "TEXT",  
+        "Phone": "TEXT",  
+        "Fax": "TEXT"  
+      },  
+      "description": "Information about customers."  
+    },  
+    "order_details": {  
+      "primary_key": ["OrderID", "ProductID"],  
+      "columns": {  
+        "OrderID": "INTEGER",  
+        "ProductID": "INTEGER",  
+        "UnitPrice": "NUMERIC",  
+        "Quantity": "INTEGER",  
+        "Discount": "REAL"  
+      },  
+      "description": "Details of each product within an order."  
+    },  
+    "Products": {  
+      "primary_key": ["ProductID"],  
+      "columns": {  
+        "ProductID": "INTEGER",  
+        "ProductName": "TEXT",  
+        "SupplierID": "INTEGER",  
+        "CategoryID": "INTEGER",  
+        "QuantityPerUnit": "TEXT",  
+        "UnitPrice": "NUMERIC",  
+        "UnitsInStock": "INTEGER",  
+        "UnitsOnOrder": "INTEGER",  
+        "ReorderLevel": "INTEGER",  
+        "Discontinued": "TEXT"  
+      },  
+      "description": "Information about products."  
+    },  
+    "Employees": {  
+      "primary_key": ["EmployeeID"],  
+      "columns": {  
+        "EmployeeID": "INTEGER",  
+        "LastName": "TEXT",  
+        "FirstName": "TEXT",  
+        "Title": "TEXT",  
+        "TitleOfCourtesy": "TEXT",  
+        "BirthDate": "DATE",  
+        "HireDate": "DATE",  
+        "Address": "TEXT",  
+        "City": "TEXT",  
+        "Region": "TEXT",  
+        "PostalCode": "TEXT",  
+        "Country": "TEXT",  
+        "HomePhone": "TEXT",  
+        "Extension": "TEXT",  
+        "Notes": "TEXT",  
+        "ReportsTo": "INTEGER",  
+        "PhotoPath": "TEXT"  
+      },  
+      "description": "Company employees."  
+    },  
+    "Shippers": {  
+      "primary_key": ["ShipperID"],  
+      "columns": {  
+        "ShipperID": "INTEGER",  
+        "CompanyName": "TEXT",  
+        "Phone": "TEXT"  
+      },  
+      "description": "Shipping partners."  
+    },  
+    "Suppliers": {  
+      "primary_key": ["SupplierID"],  
+      "columns": {  
+        "SupplierID": "INTEGER",  
+        "CompanyName": "TEXT",  
+        "ContactName": "TEXT",  
+        "ContactTitle": "TEXT",  
+        "Address": "TEXT",  
+        "City": "TEXT",  
+        "Region": "TEXT",  
+        "PostalCode": "TEXT",  
+        "Country": "TEXT",  
+        "Phone": "TEXT",  
+        "Fax": "TEXT",  
+        "HomePage": "TEXT"  
+      },  
+      "description": "Product suppliers."  
+    },  
+    "Categories": {  
+      "primary_key": ["CategoryID"],  
+      "columns": {  
+        "CategoryID": "INTEGER",  
+        "CategoryName": "TEXT",  
+        "Description": "TEXT",  
+        "Picture": "BLOB"  
+      },  
+      "description": "Product categories."  
+    },  
+    "Territories": {  
+      "primary_key": ["TerritoryID"],  
+      "columns": {  
+        "TerritoryID": "TEXT",  
+        "TerritoryDescription": "TEXT",  
+        "RegionID": "INTEGER"  
+      },  
+      "description": "Sales territories."  
+    },  
+    "EmployeeTerritories": {  
+      "primary_key": ["EmployeeID", "TerritoryID"],  
+      "columns": {  
+        "EmployeeID": "INTEGER",  
+        "TerritoryID": "TEXT"  
+      },  
+      "description": "Links employees to territories."  
+    },  
+    "Regions": {  
+      "primary_key": ["RegionID"],  
+      "columns": {  
+        "RegionID": "INTEGER",  
+        "RegionDescription": "TEXT"  
+      },  
+      "description": "Geographic regions."  
+    },  
+    "CustomerDemographics": {  
+      "primary_key": ["CustomerTypeID"],  
+      "columns": {  
+        "CustomerTypeID": "TEXT",  
+        "CustomerDesc": "TEXT"  
+      },  
+      "description": "Customer demographic categories."  
+    },  
+    "CustomerCustomerDemo": {  
+      "primary_key": ["CustomerID", "CustomerTypeID"],  
+      "columns": {  
+        "CustomerID": "TEXT",  
+        "CustomerTypeID": "TEXT"  
+      },  
+      "description": "Bridge table between Customers and CustomerDemographics."  
+    }  
+  },  
+  
+  "joins": [  
+    { "left": "Orders", "right": "order_details",      "condition": "Orders.OrderID = order_details.OrderID",         "type": "INNER" },  
+    { "left": "order_details", "right": "Products",    "condition": "order_details.ProductID = Products.ProductID",  "type": "INNER" },  
+    { "left": "Products", "right": "Categories",       "condition": "Products.CategoryID = Categories.CategoryID",   "type": "LEFT"  },  
+    { "left": "Orders", "right": "Customers",          "condition": "Orders.CustomerID = Customers.CustomerID",      "type": "LEFT"  },  
+    { "left": "Orders", "right": "Employees",          "condition": "Orders.EmployeeID = Employees.EmployeeID",      "type": "LEFT"  },  
+    { "left": "Employees", "right": "EmployeeTerritories", "condition": "Employees.EmployeeID = EmployeeTerritories.EmployeeID", "type": "LEFT" },  
+    { "left": "EmployeeTerritories", "right": "Territories", "condition": "EmployeeTerritories.TerritoryID = Territories.TerritoryID", "type": "LEFT" },  
+    { "left": "Territories", "right": "Regions",       "condition": "Territories.RegionID = Regions.RegionID",       "type": "LEFT"  },  
+    { "left": "Orders", "right": "Shippers",           "condition": "Orders.ShipVia = Shippers.ShipperID",           "type": "LEFT"  },  
+    { "left": "Employees", "right": "Employees",       "condition": "manager.EmployeeID = staff.ReportsTo",          "type": "LEFT", "left_alias": "staff", "right_alias": "manager" }  
+  ]  
+}  

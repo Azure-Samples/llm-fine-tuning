@@ -1,0 +1,9 @@
+accelerate>=1.9.0  
+peft>=0.17.0  
+bitsandbytes>=0.46.1 
+transformers>=4.55.0
+trl>=0.21.0 
+scipy
+azureml-mlflow>=1.60.0.post1
+deepspeed>=0.17.4
+flash-attn

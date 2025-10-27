@@ -1,0 +1,58 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json
+type: command
+description: Multilingual Reasoning Fine-tuning with TRL
+display_name: multilingual-reasoner-finetune
+code: .
+inputs:
+  model_dir:
+    path: azureml://registries/azureml-openai-oss/models/gpt-oss-20b/versions/9
+environment:
+  build:
+    path: ../docker-context
+compute: azureml:nc80h100
+resources:
+  instance_count: 1
+distribution:  
+  type: pytorch  
+  process_count_per_instance: 1 # Number of processes per node  
+
+command: >-
+  python train_multilingual_reasoner.py
+  --model_name_or_path ${{inputs.model_dir}}
+  --use_quantization
+  --dataset_name "HuggingFaceH4/Multilingual-Thinking"
+  --dataset_split "train"
+  --max_seq_length 2048
+  --use_peft_lora
+  --lora_r 8
+  --lora_alpha 16
+  --lora_dropout 0.0
+  --lora_target_modules "all-linear"
+  --lora_target_parameters "7.mlp.experts.gate_up_proj,7.mlp.experts.down_proj,15.mlp.experts.gate_up_proj,15.mlp.experts.down_proj,23.mlp.experts.gate_up_proj,23.mlp.experts.down_proj"
+  --output_dir ${{outputs.output_dir}}
+  --learning_rate 2e-4
+  --per_device_train_batch_size 4
+  --gradient_accumulation_steps 4
+  --num_train_epochs 1
+  --warmup_ratio 0.03
+  --logging_steps 1
+  --save_strategy "epoch"
+  --save_total_limit 2
+  --gradient_checkpointing
+  --bf16
+  --report_to "none"
+  --seed 42
+
+experiment_name: multilingual-reasoner-finetune
+
+outputs:
+  output_dir:
+    type: uri_folder
+    mode: rw_mount
+  hf_dir:
+    type: uri_folder
+    mode: rw_mount
+
+environment_variables:
+  HF_HUB_CACHE: ${{outputs.hf_dir}}
+  PYTORCH_CUDA_ALLOC_CONF: "expandable_segments:True"

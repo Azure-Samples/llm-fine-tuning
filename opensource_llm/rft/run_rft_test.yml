@@ -1,0 +1,15 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json  
+type: command  
+description: Test run Reinforcement Fine-Tuning (RFT) 
+display_name: RFT_Test  
+  
+code: ./ # Path to your training script and related files  
+command: >  
+  accelerate launch 
+  rft_lora.py
+environment:  
+  build:
+    path: ./docker-context
+compute: azureml:NC24adsA100  # Replace with your compute cluster name 
+experiment_name: RFT_Test_Experiment  # Name of the experiment 
+  
