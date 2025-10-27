@@ -299,7 +299,12 @@ def main():
         lr_scheduler_type="cosine_with_min_lr",
         lr_scheduler_kwargs={"min_lr_rate": 0.1},
         report_to=args.report_to,
+        # DDP optimizations (valid TrainingArguments parameters)
         ddp_find_unused_parameters=False,  # All parameters are used
+        ddp_bucket_cap_mb=25,  # Larger gradient buckets for better communication efficiency
+        # Performance optimizations
+        dataloader_num_workers=4,  # Parallel data loading
+        dataloader_pin_memory=True,  # Faster CPU-to-GPU transfer
     )
     
     # Create trainer

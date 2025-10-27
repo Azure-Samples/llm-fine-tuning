@@ -1,7 +1,7 @@
 $schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json
 type: command
-description: Multilingual Reasoning Fine-tuning with Accelerate DDP (for target_parameters support)
-display_name: multilingual-reasoner-finetune-accelerate-ddp
+description: Multilingual Reasoning Fine-tuning with Accelerate DDP - Optimized for Speed
+display_name: multilingual-reasoner-finetune-accelerate-ddp-fast
 code: .
 inputs:
   model_dir:
@@ -40,13 +40,13 @@ command: >-
   --lora_target_parameters "7.mlp.experts.gate_up_proj,7.mlp.experts.down_proj,15.mlp.experts.gate_up_proj,15.mlp.experts.down_proj,23.mlp.experts.gate_up_proj,23.mlp.experts.down_proj"
   --output_dir ${{outputs.output_dir}}
   --learning_rate 2e-4
-  --per_device_train_batch_size 4
-  --gradient_accumulation_steps 2
+  --per_device_train_batch_size 8
+  --gradient_accumulation_steps 1
   --num_train_epochs 1
   --warmup_ratio 0.03
-  --logging_steps 5
+  --logging_steps 10
   --save_strategy "epoch"
-  --save_total_limit 2
+  --save_total_limit 1
   --gradient_checkpointing
   --bf16
   --report_to "none"
