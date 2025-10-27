@@ -1,0 +1,53 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json
+type: command
+description: Multilingual Reasoning Fine-tuning with Accelerate DDP (for target_parameters support)
+display_name: multilingual-reasoner-finetune-accelerate-ddp
+code: .
+inputs:
+  model_dir:
+    path: azureml://registries/azureml-openai-oss/models/gpt-oss-20b/versions/9
+outputs:
+  output_dir:
+    type: uri_folder
+environment:
+  build:
+    path: ../docker-context
+compute: azureml:nc80h100
+resources:
+  instance_count: 1  # Number of nodes
+distribution:
+  type: pytorch
+  process_count_per_instance: 1  # Number of GPUs per node
+
+command: >-
+  accelerate launch 
+  --config_file "configs/ddp_config.yaml"
+  --num_processes 2
+  --num_machines 1 
+  --machine_rank $NODE_RANK
+  --main_process_ip $MASTER_ADDR
+  --main_process_port $MASTER_PORT
+  train_multilingual_reasoner.py
+  --model_name_or_path ${{inputs.model_dir}}
+  --dataset_name "HuggingFaceH4/Multilingual-Thinking"
+  --dataset_split "train"
+  --max_seq_length 2048
+  --use_peft_lora
+  --lora_r 8
+  --lora_alpha 16
+  --lora_dropout 0.0
+  --lora_target_modules "all-linear"
+  --lora_target_parameters "7.mlp.experts.gate_up_proj,7.mlp.experts.down_proj,15.mlp.experts.gate_up_proj,15.mlp.experts.down_proj,23.mlp.experts.gate_up_proj,23.mlp.experts.down_proj"
+  --output_dir ${{outputs.output_dir}}
+  --learning_rate 2e-4
+  --per_device_train_batch_size 2
+  --gradient_accumulation_steps 4
+  --num_train_epochs 1
+  --warmup_ratio 0.03
+  --logging_steps 1
+  --save_strategy "epoch"
+  --save_total_limit 2
+  --gradient_checkpointing
+  --bf16
+  --report_to "none"
+  --seed 42
