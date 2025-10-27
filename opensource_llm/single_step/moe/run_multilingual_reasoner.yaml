@@ -12,9 +12,6 @@ environment:
 compute: azureml:nc80h100
 resources:
   instance_count: 1
-distribution:  
-  type: pytorch  
-  process_count_per_instance: 1 # Number of processes per node  
 
 command: >-
   python train_multilingual_reasoner.py
@@ -35,9 +32,9 @@ command: >-
   --gradient_accumulation_steps 4
   --num_train_epochs 1
   --warmup_ratio 0.03
-  --logging_steps 1
+  --logging_steps 5
   --save_strategy "epoch"
-  --save_total_limit 2
+  --save_total_limit 1
   --gradient_checkpointing
   --bf16
   --report_to "none"
